@@ -3,7 +3,7 @@
 
 # Glass Music Player
 
-![image](https://github.com/user-attachments/assets/a25e395e-9f55-455e-bc22-843de0698144)
+![image](https://github.com/user-attachments/assets/0783a10a-c87c-4f79-8719-5c5bde29b570)
 
 ### 介绍 📖
 
@@ -77,9 +77,9 @@ pnpm dev
 
 ### 项目截图 📷
 
-![image](https://github.com/user-attachments/assets/40b285d9-5502-4c7c-822e-200e075c9cff)
+![image](https://github.com/user-attachments/assets/fd3f5d49-3473-4f96-8917-04aa6f9482b0)
 
-![image](https://github.com/user-attachments/assets/eef183e3-9c32-4f75-b675-1f355515e025)
+![image](https://github.com/user-attachments/assets/3cd5684e-c612-41b4-9371-79ba75ab1d29)
 
 ![image](https://github.com/user-attachments/assets/f9b0fd38-52c7-44b5-9754-e43836184d85)
 

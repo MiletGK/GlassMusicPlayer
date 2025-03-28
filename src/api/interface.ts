@@ -72,6 +72,8 @@ export namespace API {
         topicPerson: number;
         trans: string;
         followed: boolean;
+        fans: number;
+        avatar: string;
     }
 
     // 专辑类型

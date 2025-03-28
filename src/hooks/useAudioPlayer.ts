@@ -37,6 +37,14 @@ export const AudioPlayer = () => {
     // 用于追踪当前歌词索引
     const currentLyricIndex = ref(0)
 
+    // 播放模式
+    const modeLabels: Record<PlayMode, string> = {
+        loop: '循环模式',
+        order: '顺序播放',
+        shuffle: '随机播放',
+        single: '单曲循环'
+    }
+
     currentTrack.value.lyrics?.lyrics
 
     // 更新当前歌曲歌词索引
@@ -222,7 +230,7 @@ export const AudioPlayer = () => {
         playMode.value = mode;
         ElNotification({
             title: '播放模式',
-            message: `已切换为 ${mode} 模式`,
+            message: `已切换为 ${modeLabels[mode]}`, // 使用中文映射
             type: 'success',
         })
     };

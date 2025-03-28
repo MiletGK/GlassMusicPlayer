@@ -1,6 +1,18 @@
 <script setup lang="ts">
-import { getTopSong, topPlaylist, API } from '@/api'
-import { formatMillisecondsToTime, replaceUrlParams } from '@/utils'
+import {
+  getTopSong,
+  topPlaylist,
+  API,
+  playlistTrackAll,
+  TopArtists,
+} from '@/api'
+type ChartItem = {
+  id: number
+  title: string
+  updateTime: string
+  songs: API.Song[]
+}
+
 const router = useRouter()
 const audio = AudioStore()
 
@@ -16,13 +28,38 @@ onMounted(async () => {
   const { playlists } = await topPlaylist({
     limit: 6,
     order: 'hot',
-    cat: '欧美',
+    cat: 'R&B/Soul',
   })
   recommendeList.value = playlists
 
   // 获取排行榜
   const { data } = await getTopSong()
   topSongList.value = data
+
+  TopArtists().then((res: any) => {
+    artists.value = res.artists.map((item: any) => ({
+      id: item.id,
+      avatar: item.img1v1Url,
+      name: item.name,
+      fans: item.fansCount,
+    }))
+  })
+
+  // 使用配置化的方式定义榜单参数
+  const chartConfigs = [
+    { id: 3779629, index: 0 }, // 新歌榜
+    { id: 3778678, index: 1 }, // 热歌榜
+    { id: 19723756, index: 2 }, // 飙升榜
+  ]
+
+  // 批量获取榜单数据
+  Promise.all(
+    chartConfigs.map(({ id }) => playlistTrackAll({ id, limit: 10 }))
+  ).then((results) => {
+    results.forEach((res: any, i: number) => {
+      charts.value[chartConfigs[i].index].songs = res.songs
+    })
+  })
 })
 
 // 转换歌曲实体
@@ -30,15 +67,16 @@ const convertToTrackModel = (song: any) => {
   return {
     id: song.id.toString(),
     title: song.name,
-    artist: song.artists.map((artist: any) => artist.name).join(', '),
-    album: song.album.name,
-    cover: song.album.picUrl || '',
+    artist: song.ar.map((artist: any) => artist.name).join(', '),
+    album: song.al.name,
+    cover: song.al.picUrl || '',
     url: '',
-    duration: song.duration,
+    duration: song.dt,
   }
 }
 
 const handlePlaylclick = async (row: any) => {
+  console.log('🚀 => row:', row)
   // 转换歌曲实体
   const track = convertToTrackModel(row)
   // 添加到播放列表
@@ -47,11 +85,36 @@ const handlePlaylclick = async (row: any) => {
   await loadTrack()
   play()
 }
+
+// 榜单数据
+const charts = ref<ChartItem[]>([
+  {
+    id: 1,
+    title: '热歌榜',
+    updateTime: '今天',
+    songs: [],
+  },
+  {
+    id: 2,
+    title: '新歌榜',
+    updateTime: '今天',
+    songs: [],
+  },
+  {
+    id: 3,
+    title: '飙升榜',
+    updateTime: '今天',
+    songs: [],
+  },
+])
+// 歌手
+const artists = ref<Pick<API.Artist, 'id' | 'avatar' | 'name' | 'fans'>[]>([])
 </script>
 <template>
-  <div class="flex gap-6 p-4 w-full">
+  <div class="flex p-4 w-full">
     <div class="flex-1">
-      <div class="w-full flex flex-col overflow-hidden mb-8">
+      <!-- banner -->
+      <div class="w-full flex flex-col overflow-hidden">
         <div
           class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-200 via-pink-200 to-blue-200 mb-8 dark:bg-gradient-to-r dark:from-pink-900 dark:via-purple-900 dark:to-indigo-900"
         >
@@ -68,7 +131,7 @@ const handlePlaylclick = async (row: any) => {
                 </div>
                 <div class="flex items-center gap-2">
                   <div class="w-2 h-2 rounded-full bg-white/80"></div>
-                  160 currently listening
+                  120 currently listening
                 </div>
               </div>
               <div class="flex gap-3">
@@ -87,13 +150,6 @@ const handlePlaylclick = async (row: any) => {
               </div>
             </div>
           </div>
-          <!-- <img
-              alt="Podcast host illustration"
-              loading="lazy"
-              width="400"
-              height="400"
-              class="absolute bottom-0 right-0 md:right-6"
-            /> -->
           <img
             alt="Podcast host illustration"
             width="350"
@@ -102,95 +158,104 @@ const handlePlaylclick = async (row: any) => {
             src="@/assets/banner/35.png"
           />
         </div>
-        <!-- Recommended -->
-        <div class="">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-semibold">Recommended For Today</h2>
-            <button
-              @click="router.push('/playlist')"
-              class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 text-primary underline-offset-4 hover:underline h-10 px-4 py-2"
-            >
-              See more
-            </button>
-          </div>
-          <div class="grid grid-cols-4 md:grid-cols-6 gap-4">
+      </div>
+      <!-- banner end -->
+      <!-- 主要内容区域 -->
+      <div class="px-4">
+        <!-- 推荐歌单 -->
+        <div class="mt-4">
+          <h2 class="text-2xl font-bold mb-6">推荐歌单</h2>
+          <div class="grid grid-cols-6 gap-6">
             <div
-              class="rounded-lg transition duration-300 hover:bg-themeBgColor bg-card text-card-foreground border-0 shadow-nonec"
-              v-for="i in recommendeList"
-              :key="i.id"
+              v-for="playlist in recommendeList"
+              :key="playlist.id"
+              @click="router.push(`/playlist/${playlist.id}`)"
+              class="group cursor-pointer"
             >
-              <div class="p-0">
-                <div class="aspect-square rounded-2xl overflow-hidden">
-                  <img
-                    :alt="i.name"
-                    loading="lazy"
-                    width="200"
-                    height="200"
-                    class="w-full h-full object-cover"
-                    :src="replaceUrlParams(i.coverImgUrl, 'param=350y350')"
-                  />
+              <div class="relative aspect-square rounded-lg overflow-hidden">
+                <img
+                  :src="playlist.coverImgUrl + '?param=330y330'"
+                  :alt="playlist.name"
+                  class="w-full h-full object-cover transition duration-300 group-hover:scale-110"
+                />
+                <div
+                  class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"
+                />
+                <div
+                  class="absolute top-1 right-2 flex items-center space-x-1 text-white"
+                >
+                  <icon-ic:outline-remove-red-eye />
+                  <span class="text-sm">{{ playlist.playCount }}</span>
                 </div>
-                <div class="flex flex-col p-2">
-                  <h3 class="font-medium mb-1 line-clamp-1">{{ i.name }}</h3>
-                  <p class="text-sm text-muted-foreground">
-                    {{ i.creator.nickname }}
-                  </p>
+                <div class="absolute bottom-2 left-0 right-0">
+                  <h3
+                    class="px-3 text-sm font-medium text-white z-10 line-clamp-2"
+                  >
+                    {{ playlist.name }}
+                  </h3>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- 歌曲 -->
-      <div class="w-full">
-        <h2 class="text-xl font-semibold mb-4">Recently played</h2>
-        <el-scrollbar class="h-96">
-          <div class="grid gap-3">
+        <!-- 增加排行榜区域 -->
+        <div class="mt-12">
+          <h2 class="text-2xl font-bold mb-6">音乐排行榜</h2>
+          <div class="grid grid-cols-3 gap-6">
             <div
-              v-for="item in topSongList"
-              :key="item.id"
-              class="flex items-center gap-4 transition duration-300 hover:bg-themeBgColor"
-              @dblclick="handlePlaylclick(item)"
+              v-for="chart in charts"
+              :key="chart.id"
+              class="backdrop-blur-sm rounded-xl p-4 shadow-sm hover:shadow-md transition-all"
             >
-              <div class="w-16 h-16 rounded-2xl overflow-hidden">
-                <el-image
-                  :alt="item.album.name"
-                  width="64"
-                  height="64"
-                  class="w-full h-full object-cover"
-                  :src="item.album.picUrl + '?param=90y90'"
-                />
-              </div>
-              <div class="flex-1">
-                <h3 class="font-medium">{{ item.album.name }}</h3>
-                <p class="text-sm text-muted-foreground line-clamp-1">
-                  {{ item.artists.map((item) => item.name).join('  ') }}
-                </p>
-              </div>
-              <div>
-                <p class="text-sm text-muted-foreground line-clamp-1">
-                  {{ formatMillisecondsToTime(item.duration) }}
-                </p>
-              </div>
-              <div class="flex items-center justify-end gap-4 w-1/5">
-                <button
-                  @click="handlePlaylclick(item)"
-                  class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-full"
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold">{{ chart.title }}</h3>
+                <span class="text-sm text-gray-500"
+                  >更新时间: {{ chart.updateTime }}</span
                 >
-                  <icon-tabler:play class="text-base" />
-                </button>
-                <button
-                  v-if="item.mvid"
-                  @click="router.push(`/mv/${item.mvid}`)"
-                  class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground rounded-full"
+              </div>
+              <div class="">
+                <div
+                  v-for="(song, index) in chart.songs"
+                  :key="index"
+                  @dblclick="handlePlaylclick(song)"
+                  class="flex p-2 items-center space-x-3 hover:bg-background rounded-md transition-all duration-300"
                 >
-                  <icon-solar:video-frame-linear class="text-base" />
-                </button>
+                  <span
+                    class="text-lg font-bold"
+                    :class="index < 3 ? 'text-primary' : 'text-gray-400'"
+                    >{{ index + 1 }}</span
+                  >
+                  <div class="flex-1">
+                    <h4 class="font-medium truncate">{{ song.name }}</h4>
+                    <p class="text-sm text-gray-500 truncate">
+                      {{ song.ar.map((item) => item.name).join() }}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </el-scrollbar>
+        </div>
+        <div class="mt-12 mb-24">
+          <h2 class="text-2xl font-bold mb-6">热门歌手</h2>
+          <div class="grid grid-cols-6 gap-6">
+            <div
+              v-for="artist in artists"
+              :key="artist.id"
+              class="text-center group cursor-pointer"
+            >
+              <div class="aspect-square rounded-full overflow-hidden mb-3">
+                <img
+                  :src="artist.avatar + '?param=330y330'"
+                  :alt="artist.name"
+                  class="w-full h-full object-cover transition duration-300 group-hover:scale-110"
+                />
+              </div>
+              <h3 class="font-medium">{{ artist.name }}</h3>
+              <p class="text-sm text-gray-500">{{ artist.fans }} 粉丝</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

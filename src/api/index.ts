@@ -41,6 +41,17 @@ export const urlV1 = (id: number | string) => {
 export const playlistDetail = (id: number | string) =>
   httpGet<API.PlaylistDetailResponse>(`/playlist/detail?id=${id}`)
 
+// 获取歌单全部歌曲
+export const playlistTrackAll = (params: {
+  id: number | string
+  limit?: number
+  offset?: number
+}) => {
+  const { limit, offset } = calculatePagination(params)
+  return httpGet(
+    `/playlist/track/all?id=${params.id}&limit=${limit}&offset=${offset}`
+  )
+}
 // 获取 MV 数据
 export const mvDetail = (mvid: number | string) =>
   httpGet<API.MVDetailResponse>(`/mv/detail?mvid=${mvid}`)
@@ -257,5 +268,7 @@ export const getMVRanking = (
   return httpGet<API.MVRankingResponse>(`/top/mv?${query}`)
 }
 
+// 热门歌手
+export const TopArtists = () => httpGet('/top/artists?offset=0&limit=12')
 
 export type { API }
